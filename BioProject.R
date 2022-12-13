@@ -122,3 +122,22 @@ fit2 <- eBayes(fit2, 0.01)
 tT <- topTable(fit2, adjust="fdr", sort.by="B", number=Inf)
 tT <- subset(tT, select=c("Gene.symbol", "Gene.ID", "adj.P.Val", "logFC"))
 write.table(tT, "Results/AML_vs_Healthy.txt", row.names=FALSE, sep='\t', quote=FALSE)
+
+aml.up <- subset(tT, logFC > 1 & adj.P.Val < 0.05)
+aml.up.genes <- unique(as.character(strsplit2(aml.up$Gene.symbol, "///")))
+write.table(aml.up.genes, file="Results/AML_vs_Healthy_UP.txt", quote=FALSE, row.names=FALSE, col.names=FALSE)
+aml.down <- subset(tT, logFC < -1 & adj.P.Val < 0.05)
+aml.down.genes <- unique(as.character(strsplit2(aml.down$Gene.symbol, "///")))
+write.table(aml.down.genes, file="Results/AML_vs_Health_Down.txt", quote=FALSE, row.names=FALSE, col.names=FALSE)
+
+
+
+
+
+
+
+
+
+
+
+
