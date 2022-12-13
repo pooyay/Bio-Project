@@ -17,6 +17,9 @@ gset <- getGEO(GEOseries, GSEMatrix =TRUE, AnnotGPL=TRUE, destdir = "Data/")
 if (length(gset) > 1) idx <- grep("GPL6244", attr(gset, "names")) else idx <- 1
 gset <- gset[[idx]]
 
+#real_gset <- gset
+#gset <- real_gset
+
 #gsms <- paste0("1111111111111XXXXXXXXXXXXXXXXXXXXXXXXXXX0XXX0XXXXX",
 #               "XXXXXXXXXXXXXXXXXX0X0XXX0X0000X0XX00XX00X0X0X0X0X0",
 #               "XXX0XXX0XXXXXXXXXXXXXXXXXXXXXXXXXXXXX0000000110!111",
@@ -39,6 +42,8 @@ gr <- c(rep("aml",13), rep("X",27), "healthy", rep("X",3), "healthy",
 ex <- exprs(gset)
 # Max of ex is not too large (13.76154). So logarithm is not necessary.
 # Normalizing is not necessary for this dataset.
+
+ex_norm <- normalizeQuantiles(ex)
 
 # **** Boxplot of expression matrix ****
 pdf("Results/boxplot.pdf", width=170)
@@ -69,24 +74,51 @@ dev.off()
 # Now more than one principal components have information and PC1 is not
 # the only principal components that varies genes.
 
+pcr <- data.frame(pc$r[,1:3], Group=gr)
+pdf("Results/PC_samples.pdf")
+ggplot(pcr, aes(PC1, PC2, color=Group)) + geom_point(size=3) + theme_bw()
+dev.off()
+
+
+# MDS:
+dist_matrix <- dist(t(ex))
+ex_mds <- cmdscale(dist_matrix)
+pdf("Results/MDS.pdf")
+plot(ex_mds[,1], ex_mds[,2])
+dev.off()
+
+ex_mds_dataframe <- data.frame(ex_mds[,1:2], Group=gr)
+pdf("Results/MDS_samples.pdf")
+ggplot(ex_mds_dataframe, aes(X1, X2, color=Group)) + geom_point(size=3) + theme_bw()
+dev.off()
+
+
 # tSNE:
 tsne_results <- Rtsne(ex, perplexity=30, check_duplicates = FALSE)
 pdf("Results/tSNE.pdf")
 plot(tsne_results$Y)
 dev.off()
 
-pcr <- data.frame(pc$r[,1:3], Group=gr)
-pdf("Results/PC_samples.pdf")
-ggplot(pcr, aes(PC1, PC2, color=Group)) + geom_point(size=3) + theme_bw()
-dev.off()
+#tSNE_dataframe <- data.frame(tsne_results$Y[,1:2], Group=gr)
+#pdf("Results/tSNE_samples.pdf")
+#plot(tSNE_dataframe)
+#dev.off()
+
+
 
 # **** Differential Expression Analysis ****
+
 #gr_factor <- factor(gr)
 gr <- factor(gr)
 gset$description <- gr
-design_matrix <- model.matrix()
+design <- model.matrix(~ description, gset)
+colnames(design) <- levels(gr)
 
 
-
-
-
+fit <- lmFit(gset, design)
+cont_matrix <- makeContrasts(aml - healthy, levels=design)
+fit2 <- contrasts.fit(fit, cont_matrix)
+fit2 <- eBayes(fit2, 0.01)
+tT <- topTable(fit2, adjust="fdr", sort.by="B", number=Inf)
+tT <- subset(tT, select=c("Gene.symbol", "Gene.ID", "adj.P.Val", "logFC"))
+write.table(tT, "Results/AML_vs_Healthy.txt", row.names=FALSE, sep='\t', quote=FALSE)
