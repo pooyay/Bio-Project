@@ -20,13 +20,24 @@ gset <- gset[[idx]]
 #real_gset <- gset
 #gset <- real_gset
 
-gr <- c(rep("aml",13), rep("X",27), "healthy", rep("X",3), "healthy",
-        rep("X",23), "healthy", "X", "healthy", rep("X",3), "healthy",
-        "X", rep("healthy",4), "X", "healthy", rep("X",2), rep("healthy",2),
-        rep("X",2), rep("healthy",2), "X", "healthy", "X", "healthy", "X",
-        "healthy", "X", "healthy", "X", "healthy", rep("X",3), "healthy",
-        rep("X",3), "healthy", rep("X",29), rep("healthy",7), rep("aml",2),
-        "healthy", rep("aml",3), rep("healthy", 20))
+#gr <- c(rep("aml",13), rep("X",27), "healthy", rep("X",3), "healthy",
+#        rep("X",23), "healthy", "X", "healthy", rep("X",3), "healthy",
+#        "X", rep("healthy",4), "X", "healthy", rep("X",2), rep("healthy",2),
+#        rep("X",2), rep("healthy",2), "X", "healthy", "X", "healthy", "X",
+#        "healthy", "X", "healthy", "X", "healthy", rep("X",3), "healthy",
+#        rep("X",3), "healthy", rep("X",29), rep("healthy",7), rep("aml",2),
+#        "healthy", rep("aml",3), rep("healthy", 20))
+
+gsms <- paste0("0000000000000XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+               "XXXXXXXXXXXXXXXXXXXXXXXXXXX11XXXXXXXXXXXXXXXXXXXXX",
+               "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX00X000",
+               "XXXXXXXX1111XXXXXXXX")
+sml <- strsplit(gsms, split="")[[1]]
+
+# filter out excluded samples (marked as "X")
+sel <- which(sml != "X")
+sml <- sml[sel]
+gset <- gset[ ,sel]
 
 
 ex <- exprs(gset)
@@ -95,14 +106,18 @@ dev.off()
 
 # **** Differential Expression Analysis ****
 #gr_factor <- factor(gr)
-gr <- factor(gr)
-gset$description <- gr
-design <- model.matrix(~ description, gset)
+gr <- factor(sml)
+groups <- make.names(c("AML", "Normal"))
+levels(gr) <- groups
+gset$group <- gr
+
+#gset$description <- gr
+design <- model.matrix(~ group + 0, gset)
 colnames(design) <- levels(gr)
 
 
 fit <- lmFit(gset, design)
-cont_matrix <- makeContrasts(aml - healthy, levels=design)
+cont_matrix <- makeContrasts(AML - Normal, levels=design)
 fit2 <- contrasts.fit(fit, cont_matrix)
 fit2 <- eBayes(fit2, 0.01)
 tT <- topTable(fit2, adjust="fdr", sort.by="B", number=Inf)
@@ -110,10 +125,10 @@ tT <- subset(tT, select=c("Gene.symbol", "Gene.ID", "adj.P.Val", "logFC"))
 write.table(tT, "Results/AML_vs_Healthy.txt", row.names=FALSE, sep='\t', quote=FALSE)
 
 # for phase 2
-#aml.up <- subset(tT, logFC > 1 & adj.P.Val < 0.05)
-#aml.up.genes <- unique(as.character(strsplit2(aml.up$Gene.symbol, "///")))
-#write.table(aml.up.genes, file="Results/AML_vs_Healthy_UP.txt", quote=FALSE, row.names=FALSE, col.names=FALSE)
-#aml.down <- subset(tT, logFC < -1 & adj.P.Val < 0.05)
-#aml.down.genes <- unique(as.character(strsplit2(aml.down$Gene.symbol, "///")))
-#write.table(aml.down.genes, file="Results/AML_vs_Health_Down.txt", quote=FALSE, row.names=FALSE, col.names=FALSE)
+aml.up <- subset(tT, logFC > 1 & adj.P.Val < 0.05)
+aml.up.genes <- unique(as.character(strsplit2(aml.up$Gene.symbol, "///")))
+write.table(aml.up.genes, file="Results/AML_vs_Healthy_UP.txt", quote=FALSE, row.names=FALSE, col.names=FALSE)
+aml.down <- subset(tT, logFC < -1 & adj.P.Val < 0.05)
+aml.down.genes <- unique(as.character(strsplit2(aml.down$Gene.symbol, "///")))
+write.table(aml.down.genes, file="Results/AML_vs_Health_Down.txt", quote=FALSE, row.names=FALSE, col.names=FALSE)
 
